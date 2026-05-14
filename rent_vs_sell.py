@@ -211,10 +211,11 @@ def build_figure(rows):
 
 rows = run_analysis()
 fig  = build_figure(rows)
+fig.savefig("rent_vs_sell.png", dpi=150, bbox_inches="tight")
 st.pyplot(fig)
 plt.close(fig)
 
-# CSV download
+# Downloads
 _fieldnames = [
     "year", "sell_investment_value", "rent_house_value", "rent_mortgage_balance",
     "rent_house_equity", "rent_accumulated_cf", "rent_total_net_worth",
@@ -224,4 +225,7 @@ _buf = io.StringIO()
 _writer = csv.DictWriter(_buf, fieldnames=_fieldnames)
 _writer.writeheader()
 _writer.writerows(rows)
-st.download_button("Download CSV", _buf.getvalue(), "rent_vs_sell.csv", "text/csv")
+col1, col2 = st.columns(2)
+col1.download_button("Download CSV", _buf.getvalue(), "rent_vs_sell.csv", "text/csv")
+with open("rent_vs_sell.png", "rb") as _f:
+    col2.download_button("Download PNG", _f.read(), "rent_vs_sell.png", "image/png")
