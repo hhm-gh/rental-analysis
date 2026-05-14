@@ -1,0 +1,4 @@
+.venv/
+.DS_Store
+rent_vs_sell.csv
+rent_vs_sell.png
