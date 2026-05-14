@@ -2,33 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Running the script
+## Running the app
 
 ```bash
-# Activate the virtual environment first
-source .venv/bin/activate
-
-# Run with CSV output + matplotlib plot
-python3 rent_vs_sell.py
-
-# CSV only (no plot window)
-python3 rent_vs_sell.py --no-plot
-
-# Or without activating the venv
-.venv/bin/python3 rent_vs_sell.py
+# Start the Streamlit web app (opens in browser at http://localhost:8501)
+.venv/bin/streamlit run rent_vs_sell.py
 ```
 
-Outputs: `rent_vs_sell.csv` and `rent_vs_sell.png` (written to the project root).
+All inputs are sidebar widgets — adjusting any value re-runs the analysis and redraws the chart instantly. A "Download CSV" button exports the results.
 
 ## Dependencies
 
-matplotlib is installed in `.venv/`. The stdlib (`csv`, `sys`) covers everything else. To add a package: `.venv/bin/pip install <package>`.
+streamlit and matplotlib are installed in `.venv/`. The stdlib (`csv`, `io`) covers everything else. To add a package: `.venv/bin/pip install <package>`.
 
 ## Architecture
 
 Single-file script (`rent_vs_sell.py`) with four sections:
 
-**Inputs** — all scenario variables are module-level constants at the top of the file. This is the only section that needs editing for a new scenario.
+**Inputs** — all scenario variables are Streamlit sidebar widgets at the top of the file. Adjusting any widget triggers an immediate re-run.
 
 **Mortgage helpers** — two pure functions: `calc_monthly_payment` (standard amortization formula) and `calc_remaining_balance` (closed-form balance after k payments).
 
@@ -38,7 +29,7 @@ Single-file script (`rent_vs_sell.py`) with four sections:
 
 Year-end snapshots are collected via `_row()`, which computes derived fields (`house_equity`, `rent_total_net_worth`, `advantage_rent_over_sell`).
 
-**Output** — `write_csv` and `plot_analysis` consume the row list produced by `run_analysis`. The plot has three panels: net worth comparison (stacked area + lines), a bar chart of rent advantage by year, and a scenario inputs table.
+**Output** — `build_figure(rows)` produces a matplotlib figure (three panels: net worth comparison, rent advantage bars, inputs table) rendered via `st.pyplot()`. A `st.download_button` streams the CSV to the browser — no files are written to disk.
 
 ## Key modelling decisions
 

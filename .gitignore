@@ -1,4 +1,5 @@
 .venv/
 .DS_Store
+__pycache__/
 rent_vs_sell.csv
 rent_vs_sell.png

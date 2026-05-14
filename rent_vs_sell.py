@@ -1,42 +1,53 @@
 #!/usr/bin/env python3
 """
-Rent vs. Sell: net worth projection.
+Rent vs. Sell: net worth projection — Streamlit app.
 
-Compares:
-  SELL — sell the house, pay off the mortgage, invest net proceeds
-  RENT — keep the house, rent it out, reinvest net monthly cash flows
-
-Edit the INPUT section, then run:
-    python3 rent_vs_sell.py            # produce CSV + plot
-    python3 rent_vs_sell.py --no-plot  # CSV only
+Run locally:
+    streamlit run rent_vs_sell.py
 """
 
 import csv
-import sys
+import io
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+import streamlit as st
 
 
-# ── Inputs ────────────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Rent vs. Sell", layout="wide")
+st.title("Rent vs. Sell: Net Worth Projection")
 
-HOME_VALUE           = 500_000   # Current market value ($)
-ORIGINAL_PRINCIPAL   = 400_000   # Original loan amount ($)
-ANNUAL_RATE          = 0.04      # Mortgage annual interest rate (e.g. 0.065 = 6.5%)
-TERM_YEARS           = 30        # Original mortgage term (years)
-YEARS_PAID           = 5         # Number of years payments have already been made
-MONTHLY_RENT         = 3_000     # Gross monthly rent collected ($)
-INVESTMENT_RETURN    = 0.07      # Annual return on invested proceeds (e.g. 0.07 = 7%)
-CASHFLOW_RETURN      = 0.00      # Annual return on reinvested rental cash flows
-APPRECIATION_RATE    = 0.02      # Annual home price appreciation rate
-ANNUAL_PROPERTY_TAX  = 6_000     # Annual property tax ($)
-ANNUAL_INSURANCE     = 1_500     # Annual homeowner's insurance ($)
-ANNUAL_MAINTENANCE   = 2_000     # Annual maintenance / capex ($)
-# ANNUAL_PROPERTY_TAX  = 0     # Annual property tax ($)
-# ANNUAL_INSURANCE     = 0     # Annual homeowner's insurance ($)
-# ANNUAL_MAINTENANCE   = 0     # Annual maintenance / capex ($)
-CLOSING_COST_PCT     = 0.0      # Seller closing costs as % of sale price
-PROJECTION_YEARS     = 30
 
-OUTPUT_CSV  = "rent_vs_sell.csv"
-OUTPUT_PLOT = "rent_vs_sell.png"
+# ── Sidebar inputs ────────────────────────────────────────────────────────────
+
+with st.sidebar:
+    st.header("Scenario Inputs")
+
+    st.subheader("Property & Mortgage")
+    HOME_VALUE         = st.number_input("Home Value ($)",          value=500_000, step=10_000, min_value=1)
+    ORIGINAL_PRINCIPAL = st.number_input("Original Loan Amount ($)", value=400_000, step=10_000, min_value=1)
+    ANNUAL_RATE        = st.slider("Mortgage Rate (%)",    1.0, 15.0, 6.5, 0.1) / 100
+    TERM_YEARS         = st.selectbox("Loan Term (years)", [15, 20, 25, 30], index=3)
+    YEARS_PAID         = st.slider("Years Already Paid",   0, TERM_YEARS - 1, 5)
+
+    st.subheader("Rental Income")
+    MONTHLY_RENT = st.number_input("Monthly Rent ($)", value=2_800, step=50, min_value=0)
+
+    st.subheader("Return Rates")
+    INVESTMENT_RETURN = st.slider("Investment Return — sell proceeds (%)", 0.0, 15.0, 7.2, 0.1) / 100
+    CASHFLOW_RETURN   = st.slider("Cash Flow Return — rental cash flows (%)", 0.0, 15.0, 0.0, 0.1) / 100
+    APPRECIATION_RATE = st.slider("Home Appreciation (%)", 0.0, 10.0, 2.0, 0.1) / 100
+
+    st.subheader("Operating Costs")
+    ANNUAL_PROPERTY_TAX = st.number_input("Property Tax ($/yr)",  value=6_000, step=500,  min_value=0)
+    ANNUAL_INSURANCE    = st.number_input("Insurance ($/yr)",     value=1_500, step=100,  min_value=0)
+    ANNUAL_MAINTENANCE  = st.number_input("Maintenance ($/yr)",   value=5_000, step=500,  min_value=0)
+
+    st.subheader("Sale & Projection")
+    CLOSING_COST_PCT = st.slider("Closing Costs (%)", 0.0, 10.0, 6.0, 0.5) / 100
+    PROJECTION_YEARS = st.slider("Projection (years)", 5, 30, 20)
 
 
 # ── Mortgage helpers ──────────────────────────────────────────────────────────
@@ -74,24 +85,19 @@ def run_analysis():
 
     rows = []
 
-    # Year-0 snapshot (the moment of decision)
     initial_monthly_cf = MONTHLY_RENT - mortgage_pmt - monthly_ops
     rows.append(_row(0, net_proceeds, HOME_VALUE, balance_0, 0.0, initial_monthly_cf))
 
-    sell_inv      = net_proceeds
-    house_value   = HOME_VALUE
-    mort_balance  = balance_0
-    acc_cf        = 0.0
-    last_cf       = initial_monthly_cf
+    sell_inv     = net_proceeds
+    house_value  = HOME_VALUE
+    mort_balance = balance_0
+    acc_cf       = 0.0
+    last_cf      = initial_monthly_cf
 
     for month in range(1, PROJECTION_YEARS * 12 + 1):
-        # Sell scenario: portfolio compounds monthly
-        sell_inv *= (1 + inv_monthly)
-
-        # House appreciates
+        sell_inv    *= (1 + inv_monthly)
         house_value *= (1 + app_monthly)
 
-        # Amortize mortgage
         if mort_balance > 0.01:
             interest     = mort_balance * r_monthly
             principal_pd = mortgage_pmt - interest
@@ -99,10 +105,9 @@ def run_analysis():
             monthly_cf   = MONTHLY_RENT - mortgage_pmt - monthly_ops
         else:
             mort_balance = 0.0
-            monthly_cf   = MONTHLY_RENT - monthly_ops  # mortgage gone
+            monthly_cf   = MONTHLY_RENT - monthly_ops
 
-        # Reinvest net cash flow (positive or negative)
-        acc_cf = acc_cf * (1 + cf_monthly) + monthly_cf
+        acc_cf  = acc_cf * (1 + cf_monthly) + monthly_cf
         last_cf = monthly_cf
 
         if month % 12 == 0:
@@ -127,39 +132,15 @@ def _row(year, sell_inv, house_value, mort_balance, acc_cf, monthly_cf):
     }
 
 
-# ── Output ────────────────────────────────────────────────────────────────────
+# ── Plot ──────────────────────────────────────────────────────────────────────
 
-FIELDNAMES = [
-    "year",
-    "sell_investment_value",
-    "rent_house_value",
-    "rent_mortgage_balance",
-    "rent_house_equity",
-    "rent_accumulated_cf",
-    "rent_total_net_worth",
-    "rent_monthly_net_cf",
-    "advantage_rent_over_sell",
-]
-
-
-def write_csv(rows):
-    with open(OUTPUT_CSV, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        writer.writerows(rows)
-    print(f"CSV  → {OUTPUT_CSV}")
-
-
-def plot_analysis(rows):
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-
-    years        = [r["year"] for r in rows]
-    sell_vals    = [r["sell_investment_value"] / 1_000 for r in rows]
-    rent_nw      = [r["rent_total_net_worth"] / 1_000 for r in rows]
-    house_eq     = [r["rent_house_equity"] / 1_000 for r in rows]
-    acc_cf       = [r["rent_accumulated_cf"] / 1_000 for r in rows]
-    advantage    = [r["advantage_rent_over_sell"] / 1_000 for r in rows]
+def build_figure(rows):
+    years     = [r["year"] for r in rows]
+    sell_vals = [r["sell_investment_value"] / 1_000 for r in rows]
+    rent_nw   = [r["rent_total_net_worth"] / 1_000 for r in rows]
+    house_eq  = [r["rent_house_equity"] / 1_000 for r in rows]
+    acc_cf    = [r["rent_accumulated_cf"] / 1_000 for r in rows]
+    advantage = [r["advantage_rent_over_sell"] / 1_000 for r in rows]
 
     fig = plt.figure(figsize=(15, 10))
     gs  = GridSpec(2, 2, figure=fig, width_ratios=[2.5, 1], hspace=0.35, wspace=0.3)
@@ -167,21 +148,19 @@ def plot_analysis(rows):
     ax2 = fig.add_subplot(gs[1, 0])
     ax3 = fig.add_subplot(gs[:, 1])
 
-    # ── Top panel: net worth comparison ──
     ax1.stackplot(
         years, house_eq, acc_cf,
         labels=["House Equity (rent)", "Accumulated Cash Flow (rent)"],
         alpha=0.3, colors=["darkorange", "gold"],
     )
     ax1.plot(years, sell_vals, label="Sell & Invest", linewidth=2.5, color="steelblue")
-    ax1.plot(years, rent_nw,   label="Rent Out (total net worth)", linewidth=2.5,
+    ax1.plot(years, rent_nw, label="Rent Out (total net worth)", linewidth=2.5,
              color="darkorange", linestyle="--")
     ax1.set_ylabel("Net Worth ($000s)")
     ax1.set_title("Rent vs. Sell: Net Worth Projection")
     ax1.legend(loc="upper left")
     ax1.grid(True, alpha=0.3)
 
-    # ── Bottom panel: rent advantage ──
     bar_colors = ["green" if a >= 0 else "red" for a in advantage]
     ax2.bar(years, advantage, color=bar_colors, alpha=0.7, width=0.8)
     ax2.axhline(0, color="black", linewidth=0.9)
@@ -190,40 +169,31 @@ def plot_analysis(rows):
     ax2.set_title("Rent Net Worth − Sell Net Worth  (green = rent wins)")
     ax2.grid(True, alpha=0.3)
 
-    # ── Right panel: scenario inputs ──
     ax3.axis("off")
     ax3.set_title("Scenario Inputs", fontweight="bold", pad=10)
-
     mortgage_pmt = calc_monthly_payment(ORIGINAL_PRINCIPAL, ANNUAL_RATE, TERM_YEARS)
-
     table_data = [
-        ["Home Value",          f"${HOME_VALUE:,.0f}"],
-        ["Original Principal",  f"${ORIGINAL_PRINCIPAL:,.0f}"],
-        ["Mortgage Rate",       f"{ANNUAL_RATE*100:.2f}%"],
-        ["Term",                f"{TERM_YEARS} yrs"],
-        ["Years Paid",          f"{YEARS_PAID}"],
-        ["Monthly Payment",     f"${mortgage_pmt:,.0f}"],
-        ["Monthly Rent",        f"${MONTHLY_RENT:,.0f}"],
-        ["Investment Return",   f"{INVESTMENT_RETURN*100:.1f}%"],
-        ["Cash Flow Return",    f"{CASHFLOW_RETURN*100:.1f}%"],
-        ["Appreciation Rate",   f"{APPRECIATION_RATE*100:.1f}%"],
-        ["Property Tax",        f"${ANNUAL_PROPERTY_TAX:,.0f}/yr"],
-        ["Insurance",           f"${ANNUAL_INSURANCE:,.0f}/yr"],
-        ["Maintenance",         f"${ANNUAL_MAINTENANCE:,.0f}/yr"],
-        ["Closing Costs",       f"{CLOSING_COST_PCT*100:.0f}%"],
-        ["Projection",          f"{PROJECTION_YEARS} yrs"],
+        ["Home Value",        f"${HOME_VALUE:,.0f}"],
+        ["Orig. Principal",   f"${ORIGINAL_PRINCIPAL:,.0f}"],
+        ["Mortgage Rate",     f"{ANNUAL_RATE*100:.2f}%"],
+        ["Term",              f"{TERM_YEARS} yrs"],
+        ["Years Paid",        f"{YEARS_PAID}"],
+        ["Monthly Payment",   f"${mortgage_pmt:,.0f}"],
+        ["Monthly Rent",      f"${MONTHLY_RENT:,.0f}"],
+        ["Investment Return", f"{INVESTMENT_RETURN*100:.1f}%"],
+        ["Cash Flow Return",  f"{CASHFLOW_RETURN*100:.1f}%"],
+        ["Appreciation",      f"{APPRECIATION_RATE*100:.1f}%"],
+        ["Property Tax",      f"${ANNUAL_PROPERTY_TAX:,.0f}/yr"],
+        ["Insurance",         f"${ANNUAL_INSURANCE:,.0f}/yr"],
+        ["Maintenance",       f"${ANNUAL_MAINTENANCE:,.0f}/yr"],
+        ["Closing Costs",     f"{CLOSING_COST_PCT*100:.0f}%"],
+        ["Projection",        f"{PROJECTION_YEARS} yrs"],
     ]
-
-    tbl = ax3.table(
-        cellText=table_data,
-        colLabels=["Variable", "Value"],
-        loc="center",
-        cellLoc="left",
-    )
+    tbl = ax3.table(cellText=table_data, colLabels=["Variable", "Value"],
+                    loc="center", cellLoc="left")
     tbl.auto_set_font_size(False)
     tbl.set_fontsize(10)
     tbl.scale(1, 1.6)
-
     for (row, col), cell in tbl.get_celld().items():
         cell.set_edgecolor("lightgray")
         if row == 0:
@@ -234,15 +204,24 @@ def plot_analysis(rows):
         else:
             cell.set_facecolor("white")
 
-    plt.savefig(OUTPUT_PLOT, dpi=150, bbox_inches="tight")
-    plt.show()
-    print(f"Plot → {OUTPUT_PLOT}")
+    return fig
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# ── Run ───────────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    rows = run_analysis()
-    write_csv(rows)
-    if "--no-plot" not in sys.argv:
-        plot_analysis(rows)
+rows = run_analysis()
+fig  = build_figure(rows)
+st.pyplot(fig)
+plt.close(fig)
+
+# CSV download
+_fieldnames = [
+    "year", "sell_investment_value", "rent_house_value", "rent_mortgage_balance",
+    "rent_house_equity", "rent_accumulated_cf", "rent_total_net_worth",
+    "rent_monthly_net_cf", "advantage_rent_over_sell",
+]
+_buf = io.StringIO()
+_writer = csv.DictWriter(_buf, fieldnames=_fieldnames)
+_writer.writeheader()
+_writer.writerows(rows)
+st.download_button("Download CSV", _buf.getvalue(), "rent_vs_sell.csv", "text/csv")
