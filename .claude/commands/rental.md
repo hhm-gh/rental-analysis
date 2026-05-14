@@ -1,7 +1,7 @@
 All scenario inputs are Streamlit sidebar widgets at the top of `rent_vs_sell.py` (after the imports). This is the only section that needs editing for a new scenario.
 
 To run: `.venv/bin/streamlit run rent_vs_sell.py` (opens at http://localhost:8501).
-No files are written to disk — CSV is available via the in-browser download button.
+On every render, `rent_vs_sell.png` is written/overwritten on disk. CSV and PNG are also available via in-browser download buttons.
 
 Key input widgets:
 - `HOME_VALUE`, `ORIGINAL_PRINCIPAL`, `ANNUAL_RATE`, `TERM_YEARS`, `YEARS_PAID`
