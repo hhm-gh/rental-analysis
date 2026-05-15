@@ -29,7 +29,7 @@ Single-file script (`rent_vs_sell.py`) with four sections:
 
 Year-end snapshots are collected via `_row()`, which computes derived fields (`house_equity`, `rent_total_net_worth`, `advantage_rent_over_sell`).
 
-**Output** — `build_figure(rows)` produces a matplotlib figure (three panels: net worth comparison, rent advantage bars, inputs table) rendered via `st.pyplot()`. A `st.download_button` streams the CSV to the browser — no files are written to disk.
+**Output** — `build_figure(rows)` produces a matplotlib figure (three panels: net worth comparison, rent advantage bars, inputs table) rendered via `st.pyplot()`. PNG written to disk on every render. CSV and PNG download buttons at the bottom.
 
 ## Key modelling decisions
 
@@ -37,3 +37,21 @@ Year-end snapshots are collected via `_row()`, which computes derived fields (`h
 - `advantage_rent_over_sell` sign depends heavily on `CASHFLOW_RETURN`: negative cash flows (rent < mortgage + ops) compound against the rent scenario at higher rates. At 0% cash flow return the losses accumulate linearly and house equity tends to dominate; at market rates the compounding deficit can flip the outcome.
 - `INVESTMENT_RETURN` applies only to the sell scenario's invested proceeds. `CASHFLOW_RETURN` applies only to the accumulated rental cash flow pool (`acc_cf`).
 - All rates compound monthly (`(1 + annual_rate)^(1/12) - 1`), not annually.
+
+## Deployment
+
+**Docker (local):**
+```bash
+docker build -t rental-analysis .
+docker run -p 8501:8501 rental-analysis
+# App available at http://localhost:8501
+```
+
+**Google Cloud Run (live):**
+- URL: https://rental-analysis-229545692350.us-central1.run.app
+- Project: `rental-analysis-2026`, Region: `us-central1`
+- To redeploy after code changes:
+```bash
+gcloud builds submit --tag us-central1-docker.pkg.dev/rental-analysis-2026/rental-analysis/rental-analysis .
+gcloud run deploy rental-analysis --image us-central1-docker.pkg.dev/rental-analysis-2026/rental-analysis/rental-analysis --platform managed --region us-central1 --allow-unauthenticated --port 8501
+```

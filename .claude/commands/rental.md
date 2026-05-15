@@ -12,3 +12,5 @@ Key input widgets:
 CSV columns: `year`, `sell_investment_value`, `rent_house_value`, `rent_mortgage_balance`, `rent_house_equity`, `rent_accumulated_cf`, `rent_total_net_worth`, `rent_monthly_net_cf`, `advantage_rent_over_sell`.
 
 The plot has 3 panels: net worth comparison (top-left), rent advantage bars (bottom-left), inputs table (right). `build_figure()` produces the matplotlib figure.
+
+Deployment: Docker image hosted on Google Cloud Run at https://rental-analysis-229545692350.us-central1.run.app (project: `rental-analysis-2026`). To redeploy: `gcloud builds submit` then `gcloud run deploy` (see CLAUDE.md for full commands).
