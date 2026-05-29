@@ -4,6 +4,8 @@ A web app deployed on **Google Cloud Run** that models the financial trade-off b
 
 **Live app: https://rental-analysis-229545692350.us-central1.run.app**
 
+![App screenshot](docs/screenshot.png)
+
 ## What it does
 
 Runs a month-by-month simulation of two parallel scenarios:
