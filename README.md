@@ -1,8 +1,8 @@
 # Rental Analysis
 
-A single-page Streamlit app that models the financial trade-off between **selling a home** vs. **renting it out**, projected year-by-year over a configurable horizon.
+A web app deployed on **Google Cloud Run** that models the financial trade-off between **selling a home** vs. **renting it out**, projected year-by-year over a configurable horizon.
 
-Live app: https://rental-analysis-229545692350.us-central1.run.app
+**Live app: https://rental-analysis-229545692350.us-central1.run.app**
 
 ## What it does
 
@@ -15,23 +15,9 @@ Outputs a three-panel chart comparing net worth, the rent advantage over time, a
 
 ## Stack
 
-- Python 3, Streamlit, matplotlib
+- Python 3, Streamlit, matplotlib — containerized with Docker
+- Hosted on Google Cloud Run (project: `rental-analysis-2026`, region: `us-central1`)
 - Single-file app (`rent_vs_sell.py`) — no database, no backend
-
-## Running locally
-
-```bash
-# Using the included venv
-.venv/bin/streamlit run rent_vs_sell.py
-# App opens at http://localhost:8501
-```
-
-Or with Docker:
-
-```bash
-docker build -t rental-analysis .
-docker run -p 8501:8501 rental-analysis
-```
 
 ## Key inputs (all adjustable in the sidebar)
 
@@ -52,15 +38,20 @@ docker run -p 8501:8501 rental-analysis
 - Accumulated cash flows (positive or negative) are tracked as a separate pool — not folded into equity
 - The sign of the rent advantage flips depending on cash flow return rate: negative cash flows compound against the rent scenario at higher rates
 
-## Deployment (Google Cloud Run)
+## Redeploying after code changes
 
 ```bash
-gcloud builds submit --tag us-central1-docker.pkg.dev/rental-analysis-2026/rental-analysis/rental-analysis .
-gcloud run deploy rental-analysis \
-  --image us-central1-docker.pkg.dev/rental-analysis-2026/rental-analysis/rental-analysis \
-  --platform managed --region us-central1 --allow-unauthenticated --port 8501
+./deploy.sh
 ```
 
-## Code quality
+## Running locally
 
-No static analysis or type checking is configured (no mypy, ruff, or similar). The codebase is a single-file exploratory tool.
+```bash
+# With Docker
+docker build -t rental-analysis .
+docker run -p 8501:8501 rental-analysis
+# App opens at http://localhost:8501
+
+# Or with the included venv
+.venv/bin/streamlit run rent_vs_sell.py
+```

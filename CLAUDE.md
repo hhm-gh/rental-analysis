@@ -2,14 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Running the app
+## Live app
+
+**https://rental-analysis-229545692350.us-central1.run.app** (Google Cloud Run)
+
+To redeploy after code changes: `./deploy.sh`
+
+## Running locally
 
 ```bash
-# Start the Streamlit web app (opens in browser at http://localhost:8501)
+# With the included venv (fastest for development)
 .venv/bin/streamlit run rent_vs_sell.py
+# Opens at http://localhost:8501
+
+# Or with Docker (matches the Cloud Run environment)
+docker build -t rental-analysis . && docker run -p 8501:8501 rental-analysis
 ```
 
-All inputs are sidebar widgets — adjusting any value re-runs the analysis and redraws the chart instantly. A "Download CSV" button exports the results.
+All inputs are sidebar widgets — adjusting any value re-runs the analysis and redraws the chart instantly.
 
 ## Dependencies
 
